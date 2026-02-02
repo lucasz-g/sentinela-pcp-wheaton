@@ -1,0 +1,71 @@
+.op-stepper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.op-stepper-item {
+  display: flex;
+  align-items: center;
+}
+
+.op-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  min-width: 160px;
+  max-width: 160px;
+  min-height: 96px;
+
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 2px solid;
+  transition: all 0.2s ease;
+}
+
+.op-card--done {
+  background-color: rgba(16, 185, 129, 0.1); /* emerald */
+  border-color: rgb(16, 185, 129);
+  color: rgb(5, 150, 105);
+}
+
+.op-card--active {
+  background-color: rgba(42, 173, 255, 0.12);   /* fundo leve */
+  border-color: rgb(123, 159, 249);              /* azul médio */
+  color: rgb(54, 103, 210);                      /* azul mais forte p/ leitura */
+}
+
+.op-card--inactive {
+  background-color: transparent;
+  border-color: rgb(203, 213, 225); /* slate-300 */
+  color: rgb(100, 116, 139);
+}
+
+.op-code {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.op-desc {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.op-connector {
+  width: 24px;
+  height: 2px;
+  background-color: rgb(203, 213, 225);
+  margin: 0 6px;
+  flex-shrink: 0;
+}

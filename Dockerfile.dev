@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# instala dependências primeiro (cache decente)
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# copia o resto do código
+COPY . .
+
+EXPOSE 3000
+
+# roda o servidor de dev (watch)
+CMD ["npm", "run", "dev"]
