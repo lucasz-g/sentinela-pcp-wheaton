@@ -68,6 +68,7 @@ interface TableRow {
   SITUACAO: string;
   RECURSO: string;
   TEMPO_SETUP_SEGS: string;
+  NAME: string;
 }
 
 interface Operation {
@@ -86,6 +87,7 @@ interface ProductionOrder {
   remaining_hours: number;
   operations: Operation[];
   is_critical: boolean;
+  name: string;
 }
 
 interface Piece {
@@ -191,6 +193,7 @@ export function processCSV(filePath: string): PrefixGroup[] {
     if (!order) {
       order = {
         op_id: opId,
+        name: row.NAME,
         status: '',
         progress: 0,
         deadline: parseDate(row.DT_PRAZO)!,

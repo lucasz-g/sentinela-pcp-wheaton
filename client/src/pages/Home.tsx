@@ -24,6 +24,7 @@ export interface ProductionOrder {
   remaining_hours: number;
   operations: Operation[];
   is_critical?: boolean; 
+  name: string;
 }
 
 
