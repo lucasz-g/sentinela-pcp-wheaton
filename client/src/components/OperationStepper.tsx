@@ -7,12 +7,22 @@ interface Operation {
 }
 
 export function OperationStepper({ operations }: { operations: Operation[] }) {
-  
-  const sortedOperations = [...operations].sort((a, b) => {
-    if (a.status === "INTERROMPIDA" && b.status !== "INTERROMPIDA") return -1;
-    if (a.status !== "INTERROMPIDA" && b.status === "INTERROMPIDA") return 1;
-    return 0;
-  });
+  const statusPriority: Record<string, number> = {
+    CONCLUIDA: 0,
+    EM_ANDAMENTO: 1,
+    NAO_INICIADA: 2,
+    CANCELADA: 3,
+  };
+
+  const sortedOperations = [...operations].sort(
+    (a, b) =>
+      (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99)
+  );
+
+  console.log(
+    "STATUSES:",
+    operations.map(o => o.status)
+  );
 
   return (
     <div className="op-stepper">
@@ -20,14 +30,13 @@ export function OperationStepper({ operations }: { operations: Operation[] }) {
         <div key={`${op.code}-${index}`} className="op-stepper-item">
           <div
             className={`op-card ${
-              op.status === "EM_ANDAMENTO"
-                ? "op-card--active"
-                : op.status === "CONCLUIDA"
+              op.status === "CONCLUIDA"
                 ? "op-card--done"
-                : "op-card--inactive"
+                : op.status === "EM_ANDAMENTO"
+                  ? "op-card--active"
+                  : "op-card--inactive"
             }`}
           >
-
             <span className="op-code">{op.code}</span>
             <span className="op-desc">{op.desc}</span>
           </div>
