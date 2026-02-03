@@ -211,30 +211,35 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Todos os Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            <SelectItem value="atrasado">Atrasado</SelectItem>
-            <SelectItem value="no_prazo">No Prazo</SelectItem>
-            <SelectItem value="concluido">Concluído</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos os Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Status</SelectItem>
+              <SelectItem value="atrasado">Atrasado</SelectItem>
+              <SelectItem value="no_prazo">No Prazo</SelectItem>
+              <SelectItem value="concluido">Concluído</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger>
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="deadline">Prazo (Urgente Primeiro)</SelectItem>
-            <SelectItem value="progress">Progresso</SelectItem>
-            <SelectItem value="status">Status</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger>
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="deadline">Prazo (Urgente Primeiro)</SelectItem>
+              <SelectItem value="progress">Progresso</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <div className="flex flex-col gap-1">
+        
+      </div>
+
+      <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-slate-600">
             Tipo da ordem
           </label>
@@ -253,7 +258,6 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
             </SelectContent>
           </Select>
         </div>
-      </div>
 
       <div className="space-y-4">
         {/* Linha 1: Emissão */}
