@@ -23,14 +23,13 @@ export interface ProductionOrder {
   days_late: number;
   remaining_hours: number;
   operations: Operation[];
-  is_critical?: boolean; 
+  is_critical?: boolean;
   name: string;
   has_missing_pieces: boolean;
-  planned_quantity: number; 
-  real_quantity: number; 
+  planned_quantity: number;
+  real_quantity: number;
   quantitiesInitialized: boolean;
 }
-
 
 export interface Piece {
   product_code: string;
@@ -40,7 +39,6 @@ export interface Piece {
   is_critical?: boolean;
   comment?: string;
 }
-
 
 export interface PrefixGroup {
   prefix: string;
@@ -76,16 +74,26 @@ export default function Home() {
   };
 
   // Calcular estatísticas gerais
-  const totalOrders = prefixGroups.reduce((sum, group) => sum + group.total_orders, 0);
-  const totalLate = prefixGroups.reduce((sum, group) => sum + group.late_count, 0);
-  const totalCritical = prefixGroups.reduce((sum, group) => sum + group.critical_count, 0);
-    // Todas as OPs
-  const allOrders = prefixGroups.flatMap(group =>
+  const statsSource = filteredGroups.length ? filteredGroups : prefixGroups;
+
+  // todas as OPs do source atual
+  const allOrders = statsSource.flatMap(group =>
     group.pieces.flatMap(piece => piece.orders)
   );
 
+  const totalOrders = allOrders.length;
+
+  const totalLate = allOrders.filter(
+    order => order.status === "atrasado" || (order.days_late ?? 0) > 0
+  ).length;
+
+  const totalCritical = statsSource.reduce(
+    (sum, group) => sum + group.critical_count,
+    0
+  );
+
   const completedOrders = allOrders.filter(
-    order => order.status === 'concluido' || order.progress >= 100
+    order => order.status === "concluido" || order.progress >= 100
   ).length;
 
   const completionRate =
@@ -93,13 +101,12 @@ export default function Home() {
       ? Math.round((completedOrders / allOrders.length) * 100)
       : 0;
 
-
   function getCompletionColor(rate: number) {
     if (rate < 50) return "text-red-400";
     if (rate < 80) return "text-amber-400";
     return "text-emerald-400";
   }
-    
+
   if (prefixGroups.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
@@ -111,7 +118,9 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">Sentinela PCP</h1>
-                <p className="text-slate-300 text-sm">Monitoramento de Ordens de Produção</p>
+                <p className="text-slate-300 text-sm">
+                  Monitoramento de Ordens de Produção
+                </p>
               </div>
             </div>
           </div>
@@ -124,8 +133,9 @@ export default function Home() {
                 Bem-vindo ao Sentinela PCP
               </h2>
               <p className="text-slate-600 text-lg">
-                Faça upload do relatório de apontamento de produção para visualizar o status das
-                ordens, identificar gargalos e acompanhar o caminho crítico de cada peça.
+                Faça upload do relatório de apontamento de produção para
+                visualizar o status das ordens, identificar gargalos e
+                acompanhar o caminho crítico de cada peça.
               </p>
             </div>
 
@@ -136,7 +146,8 @@ export default function Home() {
             />
 
             <p className="text-center text-sm text-slate-500 mt-6">
-              O arquivo Excel (.xlsx) deve conter as colunas: ORDEMPRODUCAO, COD_PRODUTO, STATUS_OPERACAO, etc.
+              O arquivo Excel (.xlsx) deve conter as colunas: ORDEMPRODUCAO,
+              COD_PRODUTO, STATUS_OPERACAO, etc.
             </p>
           </div>
         </main>
@@ -161,7 +172,9 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold">Sentinela PCP</h1>
-                <p className="text-slate-300 text-xs">Monitoramento de Ordens de Produção</p>
+                <p className="text-slate-300 text-xs">
+                  Monitoramento de Ordens de Produção
+                </p>
               </div>
             </div>
 
@@ -180,24 +193,33 @@ export default function Home() {
                 <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg">
                   <CheckCircle className="w-4 h-4 text-emerald-400" />
                   <span className="text-slate-300">Concluídas:</span>
-                  
+
                   {/* Cor interativa */}
-                  <span className={cn("font-bold", getCompletionColor(completionRate))}>
-                    {completionRate}% <span className="text-slate-400 font-normal">({completedOrders}/{allOrders.length})</span>
+                  <span
+                    className={cn(
+                      "font-bold",
+                      getCompletionColor(completionRate)
+                    )}
+                  >
+                    {completionRate}%{" "}
+                    <span className="text-slate-400 font-normal">
+                      ({completedOrders}/{allOrders.length})
+                    </span>
                   </span>
-                  
+
                   {/* <span className="font-bold text-emerald-400">
                     {completionRate}% <span className="text-slate-400 font-normal">({completedOrders}/{allOrders.length})</span>
                   </span> */}
-
                 </div>
                 <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg">
                   <TrendingUp className="w-4 h-4 text-amber-400" />
                   <span className="text-slate-300">Peças Críticas:</span>
-                  <span className="font-bold text-amber-400">{totalCritical}</span>
+                  <span className="font-bold text-amber-400">
+                    {totalCritical}
+                  </span>
                 </div>
               </div>
-              <AlertPanel groups={prefixGroups} />
+              {/* <AlertPanel groups={filteredGroups} /> */}
             </div>
           </div>
         </div>
@@ -207,10 +229,16 @@ export default function Home() {
         <Tabs defaultValue="dashboard" className="w-full">
           <div className="flex items-center justify-between mb-6">
             <TabsList className="bg-white shadow-sm">
-              <TabsTrigger value="dashboard" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger
+                value="dashboard"
+                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
                 Dashboard
               </TabsTrigger>
-              <TabsTrigger value="alerts" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger
+                value="alerts"
+                className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              >
                 Alertas
               </TabsTrigger>
             </TabsList>
@@ -239,9 +267,14 @@ export default function Home() {
               {prefixGroups.flatMap(group =>
                 group.pieces.flatMap(piece =>
                   piece.orders
-                    .filter(order => order.status === 'atrasado' || order.days_late)
+                    .filter(
+                      order => order.status === "atrasado" || order.days_late
+                    )
                     .map(order => (
-                      <Card key={`${group.prefix}-${piece.product_code}-${order.op_id}`} className="p-4 bg-white shadow-sm border-l-4 border-red-500">
+                      <Card
+                        key={`${group.prefix}-${piece.product_code}-${order.op_id}`}
+                        className="p-4 bg-white shadow-sm border-l-4 border-red-500"
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
@@ -260,15 +293,25 @@ export default function Home() {
                             </p>
                             <div className="flex items-center gap-4 mt-3 text-sm">
                               <span className="text-slate-600">
-                                Prazo: <span className="font-medium text-slate-900">{new Date(order.deadline).toLocaleDateString('pt-BR')}</span>
+                                Prazo:{" "}
+                                <span className="font-medium text-slate-900">
+                                  {new Date(order.deadline).toLocaleDateString(
+                                    "pt-BR"
+                                  )}
+                                </span>
                               </span>
                               {order.days_late && (
                                 <span className="text-red-600 font-medium">
-                                  {order.days_late} {order.days_late === 1 ? 'dia' : 'dias'} de atraso
+                                  {order.days_late}{" "}
+                                  {order.days_late === 1 ? "dia" : "dias"} de
+                                  atraso
                                 </span>
                               )}
                               <span className="text-slate-600">
-                                Progresso: <span className="font-medium text-slate-900">{order.progress}%</span>
+                                Progresso:{" "}
+                                <span className="font-medium text-slate-900">
+                                  {order.progress}%
+                                </span>
                               </span>
                             </div>
                           </div>
