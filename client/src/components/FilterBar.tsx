@@ -20,81 +20,63 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("deadline");
-  const [emissionFrom, setEmissionFrom] = useState<string>("");
-  const [emissionTo, setEmissionTo] = useState<string>("");
-  const [deadlineFrom, setDeadlineFrom] = useState<string>("");
-  const [deadlineTo, setDeadlineTo] = useState<string>("");
-  const [nameFilter, setNameFilter] = useState("all");
+  const [emissionFrom, setEmissionFrom] = useState<string>('');
+  const [emissionTo, setEmissionTo] = useState<string>('');
+  const [deadlineFrom, setDeadlineFrom] = useState<string>('');
+  const [deadlineTo, setDeadlineTo] = useState<string>('');
+
 
   useEffect(() => {
     let filtered = JSON.parse(JSON.stringify(groups)) as PrefixGroup[];
 
     // Filtrar por busca (produto ou OP)
     if (searchTerm) {
-      filtered = filtered
-        .map(group => ({
-          ...group,
-          pieces: group.pieces
-            .map(piece => ({
-              ...piece,
-              orders: piece.orders.filter(
-                order =>
-                  piece.product_code
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  piece.product_desc
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  order.op_id.includes(searchTerm)
-              ),
-            }))
-            .filter(piece => piece.orders.length > 0),
-        }))
-        .filter(group => group.pieces.length > 0);
+      filtered = filtered.map(group => ({
+        ...group,
+        pieces: group.pieces.map(piece => ({
+          ...piece,
+          orders: piece.orders.filter(order =>
+            piece.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            piece.product_desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.op_id.includes(searchTerm)
+          )
+        })).filter(piece => piece.orders.length > 0)
+      })).filter(group => group.pieces.length > 0);
     }
 
     // Filtrar por status
     if (statusFilter !== "all") {
-      filtered = filtered
-        .map(group => ({
-          ...group,
-          pieces: group.pieces
-            .map(piece => ({
-              ...piece,
-              orders: piece.orders.filter(
-                order => order.status === statusFilter
-              ),
-            }))
-            .filter(piece => piece.orders.length > 0),
-        }))
-        .filter(group => group.pieces.length > 0);
+      filtered = filtered.map(group => ({
+        ...group,
+        pieces: group.pieces.map(piece => ({
+          ...piece,
+          orders: piece.orders.filter(order => order.status === statusFilter)
+        })).filter(piece => piece.orders.length > 0)
+      })).filter(group => group.pieces.length > 0);
     }
 
     // Filtro de datas
-    filtered = filtered
-      .map(group => ({
-        ...group,
-        pieces: group.pieces
-          .map(piece => ({
-            ...piece,
-            orders: piece.orders.filter(order => {
-              const emission = new Date(order.emission_date);
-              const deadline = new Date(order.deadline);
+    filtered = filtered.map(group => ({
+      ...group,
+      pieces: group.pieces.map(piece => ({
+        ...piece,
+        orders: piece.orders.filter(order => {
+          const emission = new Date(order.emission_date);
+          const deadline = new Date(order.deadline);
+        
+          const emissionValid =
+            (!emissionFrom || emission >= new Date(emissionFrom)) &&
+            (!emissionTo || emission <= new Date(emissionTo));
+        
+          const deadlineValid =
+            (!deadlineFrom || deadline >= new Date(deadlineFrom)) &&
+            (!deadlineTo || deadline <= new Date(deadlineTo));
+        
+          return emissionValid && deadlineValid;
+        })
+      })).filter(piece => piece.orders.length > 0)
+    })).filter(group => group.pieces.length > 0);
 
-              const emissionValid =
-                (!emissionFrom || emission >= new Date(emissionFrom)) &&
-                (!emissionTo || emission <= new Date(emissionTo));
-
-              const deadlineValid =
-                (!deadlineFrom || deadline >= new Date(deadlineFrom)) &&
-                (!deadlineTo || deadline <= new Date(deadlineTo));
-
-              return emissionValid && deadlineValid;
-            }),
-          }))
-          .filter(piece => piece.orders.length > 0),
-      }))
-      .filter(group => group.pieces.length > 0);
 
     // Ordenar
     filtered.forEach(group => {
@@ -102,17 +84,12 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
         piece.orders.sort((a, b) => {
           switch (sortBy) {
             case "deadline":
-              return (
-                new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-              );
+              return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
             case "progress":
               return a.progress - b.progress;
             case "status":
               const statusOrder = { atrasado: 0, no_prazo: 1, concluido: 2 };
-              return (
-                statusOrder[a.status as keyof typeof statusOrder] -
-                statusOrder[b.status as keyof typeof statusOrder]
-              );
+              return statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
             default:
               return 0;
           }
@@ -129,15 +106,12 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
     setSortBy("deadline");
   };
 
-  const hasActiveFilters =
-    searchTerm || statusFilter !== "all" || sortBy !== "deadline";
+  const hasActiveFilters = searchTerm || statusFilter !== "all" || sortBy !== "deadline";
 
   // Contar resultados
   const [filteredResults, setFilteredResults] = useState(0);
-  const totalResults = groups.reduce(
-    (sum, group) =>
-      sum + group.pieces.reduce((pSum, piece) => pSum + piece.orders.length, 0),
-    0
+  const totalResults = groups.reduce((sum, group) =>
+    sum + group.pieces.reduce((pSum, piece) => pSum + piece.orders.length, 0), 0
   );
 
   useEffect(() => {
@@ -147,70 +121,51 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
 
     // Filtrar por busca
     if (searchTerm) {
-      filtered = filtered
-        .map(group => ({
-          ...group,
-          pieces: group.pieces
-            .map(piece => ({
-              ...piece,
-              orders: piece.orders.filter(
-                order =>
-                  piece.product_code
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  piece.product_desc
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  order.op_id.includes(searchTerm)
-              ),
-            }))
-            .filter(piece => piece.orders.length > 0),
-        }))
-        .filter(group => group.pieces.length > 0);
+      filtered = filtered.map(group => ({
+        ...group,
+        pieces: group.pieces.map(piece => ({
+          ...piece,
+          orders: piece.orders.filter(order =>
+            piece.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            piece.product_desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.op_id.includes(searchTerm)
+          )
+        })).filter(piece => piece.orders.length > 0)
+      })).filter(group => group.pieces.length > 0);
     }
 
     // Filtrar por status
     if (statusFilter !== "all") {
-      filtered = filtered
-        .map(group => ({
-          ...group,
-          pieces: group.pieces
-            .map(piece => ({
-              ...piece,
-              orders: piece.orders.filter(
-                order => order.status === statusFilter
-              ),
-            }))
-            .filter(piece => piece.orders.length > 0),
-        }))
-        .filter(group => group.pieces.length > 0);
+      filtered = filtered.map(group => ({
+        ...group,
+        pieces: group.pieces.map(piece => ({
+          ...piece,
+          orders: piece.orders.filter(order => order.status === statusFilter)
+        })).filter(piece => piece.orders.length > 0)
+      })).filter(group => group.pieces.length > 0);
     }
 
     // Filtro de datas
-    filtered = filtered
-      .map(group => ({
-        ...group,
-        pieces: group.pieces
-          .map(piece => ({
-            ...piece,
-            orders: piece.orders.filter(order => {
-              const emission = new Date(order.emission_date);
-              const deadline = new Date(order.deadline);
+    filtered = filtered.map(group => ({
+      ...group,
+      pieces: group.pieces.map(piece => ({
+        ...piece,
+        orders: piece.orders.filter(order => {
+          const emission = new Date(order.emission_date);
+          const deadline = new Date(order.deadline);
 
-              const emissionValid =
-                (!emissionFrom || emission >= new Date(emissionFrom)) &&
-                (!emissionTo || emission <= new Date(emissionTo));
+          const emissionValid =
+            (!emissionFrom || emission >= new Date(emissionFrom)) &&
+            (!emissionTo || emission <= new Date(emissionTo));
 
-              const deadlineValid =
-                (!deadlineFrom || deadline >= new Date(deadlineFrom)) &&
-                (!deadlineTo || deadline <= new Date(deadlineTo));
+          const deadlineValid =
+            (!deadlineFrom || deadline >= new Date(deadlineFrom)) &&
+            (!deadlineTo || deadline <= new Date(deadlineTo));
 
-              return emissionValid && deadlineValid;
-            }),
-          }))
-          .filter(piece => piece.orders.length > 0),
-      }))
-      .filter(group => group.pieces.length > 0);
+          return emissionValid && deadlineValid;
+        })
+      })).filter(piece => piece.orders.length > 0)
+    })).filter(group => group.pieces.length > 0);
 
     // Ordenar
     filtered.forEach(group => {
@@ -218,17 +173,12 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
         piece.orders.sort((a, b) => {
           switch (sortBy) {
             case "deadline":
-              return (
-                new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-              );
+              return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
             case "progress":
               return a.progress - b.progress;
             case "status":
               const statusOrder = { atrasado: 0, no_prazo: 1, concluido: 2 };
-              return (
-                statusOrder[a.status as keyof typeof statusOrder] -
-                statusOrder[b.status as keyof typeof statusOrder]
-              );
+              return statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
             default:
               return 0;
           }
@@ -236,53 +186,17 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
       });
     });
 
-    // Filtrar por NAME
-    if (nameFilter && nameFilter !== "all") {
-      filtered = filtered
-        .map(group => ({
-          ...group,
-          pieces: group.pieces
-            .map(piece => ({
-              ...piece,
-              orders: piece.orders.filter(order => order.name === nameFilter),
-            }))
-            .filter(piece => piece.orders.length > 0),
-        }))
-        .filter(group => group.pieces.length > 0);
-    }
-
     // Atualiza estado do filtro
     onFilterChange(filtered);
 
     // Atualiza quantidade de ordens filtradas
-    const filteredCount = filtered.reduce(
-      (sum, group) =>
-        sum +
-        group.pieces.reduce((pSum, piece) => pSum + piece.orders.length, 0),
-      0
+    const filteredCount = filtered.reduce((sum, group) =>
+      sum + group.pieces.reduce((pSum, piece) => pSum + piece.orders.length, 0), 0
     );
     setFilteredResults(filteredCount);
-  }, [
-    searchTerm,
-    statusFilter,
-    nameFilter,
-    sortBy,
-    emissionFrom,
-    emissionTo,
-    deadlineFrom,
-    deadlineTo,
-    groups,
-  ]);
 
-  const nameOptions = Array.from(
-    new Set(
-      groups.flatMap(group =>
-        group.pieces.flatMap(piece =>
-          piece.orders.map(order => order.name).filter(Boolean)
-        )
-      )
-    )
-  ).sort();
+  }, [searchTerm, statusFilter, sortBy, emissionFrom, emissionTo, deadlineFrom, deadlineTo, groups]);
+
 
   return (
     <div className="space-y-4">
@@ -297,7 +211,7 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
           <Input
             placeholder="Buscar por produto..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -324,30 +238,13 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
             <SelectItem value="status">Status</SelectItem>
           </SelectContent>
         </Select>
-
-        <Select value={nameFilter} onValueChange={setNameFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Tipo de OP" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {nameOptions.map(name => (
-              <SelectItem key={name} value={name}>
-                {name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-4">
         {/* Linha 1: Emissão */}
         <div className="flex items-end gap-4">
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-slate-600">
-              Emissão De
-            </label>
+            <label className="text-xs font-medium text-slate-600">Emissão De</label>
             <Input
               type="date"
               value={emissionFrom}
@@ -355,9 +252,7 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-slate-600">
-              Emissão Até
-            </label>
+            <label className="text-xs font-medium text-slate-600">Emissão Até</label>
             <Input
               type="date"
               value={emissionTo}
@@ -369,9 +264,7 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
         {/* Linha 2: Prazo */}
         <div className="flex items-end gap-4">
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-slate-600">
-              Prazo De
-            </label>
+            <label className="text-xs font-medium text-slate-600">Prazo De</label>
             <Input
               type="date"
               value={deadlineFrom}
@@ -379,9 +272,7 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-slate-600">
-              Prazo Até
-            </label>
+            <label className="text-xs font-medium text-slate-600">Prazo Até</label>
             <Input
               type="date"
               value={deadlineTo}
@@ -403,13 +294,8 @@ export function FilterBar({ groups, onFilterChange }: FilterBarProps) {
 
       <div className="flex items-center justify-between text-sm">
         <span className="text-slate-600">
-          Exibindo{" "}
-          <span className="font-semibold text-slate-900">
-            {filteredResults}
-          </span>{" "}
-          de{" "}
-          <span className="font-semibold text-slate-900">{totalResults}</span>{" "}
-          ordens
+          Exibindo <span className="font-semibold text-slate-900">{filteredResults}</span> de{" "}
+          <span className="font-semibold text-slate-900">{totalResults}</span> ordens
         </span>
 
         {hasActiveFilters && (

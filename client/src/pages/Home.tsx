@@ -24,10 +24,6 @@ export interface ProductionOrder {
   remaining_hours: number;
   operations: Operation[];
   is_critical?: boolean; 
-  planned_quantity: number;
-  real_quantity: number;
-  name: string;
-  has_missing_pieces: boolean;
 }
 
 

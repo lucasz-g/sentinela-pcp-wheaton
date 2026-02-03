@@ -1,26 +1,26 @@
-import { readFileSync } from "fs";
-import * as XLSX from "xlsx";
-import { extractPrefix, getPrefixName } from "./prefixMapping";
+import { readFileSync } from 'fs';
+import * as XLSX from 'xlsx';
+import { extractPrefix, getPrefixName } from './prefixMapping';
 
 // Lista de produtos permitidos (tipos de peças de moldes)
 const ALLOWED_PRODUCTS = [
-  "MOLDE",
-  "BLANK",
-  "BAFFLE",
-  "FUNIL",
-  "FUNDO",
-  "NECKRING",
-  "ANEL DE GUIA",
-  "INJETOR",
-  "MACHO",
-  "PLUG DO BAFFLE",
-  "BUCHA DO FUNDO",
-  "PLUG DO FUNDO",
-  "BUCHA DO MOLDE",
-  "EIXO MOTOR",
-  "GUIA DA GAVETA",
-  "PINO",
-  "ALAVANCA AC",
+  'MOLDE',
+  'BLANK',
+  'BAFFLE',
+  'FUNIL',
+  'FUNDO',
+  'NECKRING',
+  'ANEL DE GUIA',
+  'INJETOR',
+  'MACHO',
+  'PLUG DO BAFFLE',
+  'BUCHA DO FUNDO',
+  'PLUG DO FUNDO',
+  'BUCHA DO MOLDE',
+  'EIXO MOTOR',
+  'GUIA DA GAVETA',
+  'PINO',
+  'ALAVANCA AC',
 ];
 
 /**
@@ -36,9 +36,12 @@ function isAllowedProduct(productDesc: string): boolean {
  * Ex: MO-11290-S -> 11290
  */
 function extractBaseNumber(productCode: string): string {
-  const parts = productCode.split("-");
-  if (parts.length >= 2) return parts[1];
-  return productCode; // fallback
+  const parts = productCode.split('-');
+  if (parts.length >= 2) {
+    // Retorna a segunda parte, que geralmente é o número (11290, 7781, etc)
+    return parts[1];
+  }
+  return productCode; // Fallback
 }
 
 interface TableRow {
@@ -52,7 +55,6 @@ interface TableRow {
   DESC_GRUPOGERENCIAL: string;
   COD_PRODUTO: string;
   DESC_PRODUTO: string;
-  NAME: string;
   DT_PRAZO: string | number;
   DT_EMISSAO: string | number;
   QUANTIDADE_PLANEJADA: string;
@@ -84,16 +86,12 @@ interface ProductionOrder {
   remaining_hours: number;
   operations: Operation[];
   is_critical: boolean;
-  planned_quantity: number;
-  real_quantity: number;
-  name: string;
-  has_missing_pieces: boolean;
 }
 
 interface Piece {
   product_code: string;
   product_desc: string;
-  base_number: string; // contexto lógico
+  base_number: string; // Contexto lógico
   remaining_hours: number;
   orders: ProductionOrder[];
   is_critical: boolean;
@@ -108,9 +106,6 @@ interface PrefixGroup {
   pieces: Piece[];
 }
 
-/**
- * Parse XLSX e retorna um array de TableRow
- */
 function parseXLSX(filePath: string): TableRow[] {
   const xlsxModule = (XLSX as any).default || XLSX;
   const workbook = xlsxModule.readFile(filePath);
@@ -120,37 +115,29 @@ function parseXLSX(filePath: string): TableRow[] {
   return jsonData as TableRow[];
 }
 
-/**
- * Converte valor de data do XLSX em Date
- */
 function parseDate(dateValue: string | number): Date | null {
   if (!dateValue) return null;
-
   if (typeof dateValue === "number") {
     const excelEpoch = new Date(1899, 11, 30);
     return new Date(excelEpoch.getTime() + dateValue * 86400000);
   }
-
   const datePart = dateValue.split(" ")[0];
-
   if (/^\d{4}\/\d{2}\/\d{2}$/.test(datePart)) {
     const [year, month, day] = datePart.split("/");
     return new Date(Number(year), Number(month) - 1, Number(day));
   }
-
   if (/^\d{2}\/\d{2}\/\d{2,4}$/.test(datePart)) {
     const [day, month, year] = datePart.split("/");
     const fullYear = year.length === 2 ? `20${year}` : year;
     return new Date(Number(fullYear), Number(month) - 1, Number(day));
   }
-
   return null;
 }
 
 function formatDate(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -167,28 +154,25 @@ function calculateDaysLate(deadline: Date): number {
   return diffDays > 0 ? diffDays : 0;
 }
 
+
 function getOrderStatus(progress: number, daysLate: number): string {
-  if (progress >= 100) return "concluido";
-  if (daysLate > 0) return "atrasado";
-  return "no_prazo";
+  if (progress >= 100) return 'concluido';
+  if (daysLate > 0) return 'atrasado';
+  return 'no_prazo';
 }
 
-/**
- * Processa CSV/XLSX e retorna PrefixGroups
- */
 export function processCSV(filePath: string): PrefixGroup[] {
   const rows: TableRow[] = parseXLSX(filePath);
-
-  // Filtra apenas produtos permitidos
   const filteredRows = rows.filter(row => isAllowedProduct(row.DESC_PRODUTO));
-
+  
+  // Estrutura temporária para agrupar todas as peças do sistema
   const allPiecesMap = new Map<string, Piece>();
-
-  // 1. Criar peças e operações
+  
+  // 1. Primeiro, processamos todas as linhas para criar as peças e suas OPs
   filteredRows.forEach(row => {
     const pieceCode = row.COD_PRODUTO;
     const opId = row.ORDEMPRODUCAO;
-
+    
     if (!allPiecesMap.has(pieceCode)) {
       allPiecesMap.set(pieceCode, {
         product_code: pieceCode,
@@ -196,40 +180,36 @@ export function processCSV(filePath: string): PrefixGroup[] {
         base_number: extractBaseNumber(pieceCode),
         remaining_hours: 0,
         orders: [],
-        is_critical: false,
+        is_critical: false
       });
     }
-
+    
     const piece = allPiecesMap.get(pieceCode)!;
-
+    
+    // Agrupar operações por OP dentro da peça
     let order = piece.orders.find(o => o.op_id === opId);
     if (!order) {
       order = {
         op_id: opId,
-        name: row.NAME,
-        status: "",
+        status: '',
         progress: 0,
         deadline: parseDate(row.DT_PRAZO)!,
         emission_date: formatDate(parseDate(row.DT_EMISSAO)!),
-        days_late: 0,
+        days_late: 0, // 👈 inicializa
         remaining_hours: 0,
         operations: [],
-        is_critical: false,
-        planned_quantity: parseFloat(row.QUANTIDADE_PLANEJADA) || 0,
-        real_quantity: parseFloat(row.QUANTIDADE_REAL) || 0,
-        has_missing_pieces: false,
+        is_critical: false
       };
       piece.orders.push(order);
     }
 
-    // Adiciona operação sem duplicatas
+    // Adicionar operação se não existir (evitar duplicatas de linhas de operação)
     if (!order.operations.find(op => op.code === row.COD_OPERACAO)) {
       const plannedQty = parseFloat(row.QUANTIDADE_PLANEJADA) || 0;
       const realQty = parseFloat(row.QUANTIDADE_REAL) || 0;
       const timePrevUnit = parseFloat(row.TMP_TOTAL_PREV_UNID) || 0;
 
-      let operationStatus: "NAO_INICIADA" | "EM_ANDAMENTO" | "CONCLUIDA" =
-        "NAO_INICIADA";
+      let operationStatus: "NAO_INICIADA" | "EM_ANDAMENTO" | "CONCLUIDA" = "NAO_INICIADA";
       let opRemainingHours = 0;
 
       if (row.STATUS_OPERACAO === "LIBERADA") {
@@ -244,84 +224,68 @@ export function processCSV(filePath: string): PrefixGroup[] {
         }
       }
 
-      if (order.planned_quantity === 0 && order.real_quantity === 0) {
-        order.planned_quantity = plannedQty;
-        order.real_quantity = realQty;
-      }
-
       order.operations.push({
         code: row.COD_OPERACAO,
         desc: row.DESC_GRUPOGERENCIAL,
-        status: operationStatus,
+        status: operationStatus
       });
-
+      
       order.remaining_hours += opRemainingHours;
     }
   });
 
-  // 2. Finalizar cálculos de progresso e status
+  // 2. Finalizar cálculos de progresso e status para cada peça/ordem
   allPiecesMap.forEach(piece => {
     piece.remaining_hours = 0;
-
     piece.orders.forEach(order => {
-      const completedOps = order.operations.filter(
-        op => op.status === "CONCLUIDA"
-      ).length;
-      order.progress =
-        order.operations.length > 0
-          ? Math.round((completedOps / order.operations.length) * 100)
-          : 0;
-
+      const completedOps = order.operations.filter(op => op.status === "CONCLUIDA").length;
+      order.progress = order.operations.length > 0 
+        ? Math.round((completedOps / order.operations.length) * 100) 
+        : 0;
+      
+      // Recalcular status baseado no progresso e prazo
       const daysLate = calculateDaysLate(order.deadline);
       order.days_late = daysLate;
       order.status = getOrderStatus(order.progress, daysLate);
-
       order.remaining_hours = Math.round(order.remaining_hours * 10) / 10;
       piece.remaining_hours += order.remaining_hours;
-
-      order.is_critical = false; // OP nunca é crítica
-      const hasStartedOperation = order.operations.some(
-        op => op.status === "CONCLUIDA"
-      );
-      order.has_missing_pieces =
-        hasStartedOperation && order.real_quantity < order.planned_quantity;
+      order.is_critical = false; // 🔒 OP NUNCA é crítica
     });
-
     piece.remaining_hours = Math.round(piece.remaining_hours * 10) / 10;
-    piece.orders.sort(
-      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-    );
+    piece.orders.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
   });
 
-  // 3. Criticidade por contexto (número base)
+  // 3. APLICAR REGRA DE CRITICIDADE POR CONTEXTO (NÚMERO BASE)
   const contextMap = new Map<string, Piece[]>();
   allPiecesMap.forEach(piece => {
-    if (!contextMap.has(piece.base_number))
+    if (!contextMap.has(piece.base_number)) {
       contextMap.set(piece.base_number, []);
+    }
     contextMap.get(piece.base_number)!.push(piece);
   });
 
-  contextMap.forEach(piecesInContext => {
+  contextMap.forEach((piecesInContext, baseNumber) => {
     let criticalPiece: Piece | null = null;
     let maxHours = 0;
 
-    for (const piece of piecesInContext) {
+    piecesInContext.forEach(piece => {
       if (piece.remaining_hours > maxHours) {
         maxHours = piece.remaining_hours;
         criticalPiece = piece;
       }
-    }
+    });
 
-    if (criticalPiece !== null && criticalPiece.remaining_hours > 0) {
-      criticalPiece.is_critical = true;
+    // Marca apenas a peça mais demorada do contexto como crítica
+    if (criticalPiece && (criticalPiece as Piece).remaining_hours > 0) {
+      (criticalPiece as Piece).is_critical = true;
     }
   });
 
-  // 4. Agrupar por prefixo
+  // 4. AGRUPAR VISUALMENTE POR PREFIXO PARA A UI
   const prefixGroupsMap = new Map<string, PrefixGroup>();
+
   allPiecesMap.forEach(piece => {
     const prefix = extractPrefix(piece.product_code);
-
     if (!prefixGroupsMap.has(prefix)) {
       prefixGroupsMap.set(prefix, {
         prefix,
@@ -329,7 +293,7 @@ export function processCSV(filePath: string): PrefixGroup[] {
         total_orders: 0,
         critical_count: 0,
         late_count: 0,
-        pieces: [],
+        pieces: []
       });
     }
 
