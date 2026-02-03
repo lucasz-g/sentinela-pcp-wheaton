@@ -186,6 +186,17 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
                             </div>
                           </AccordionTrigger>
 
+                          {piece.comment && (
+                            <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+                              <div className="text-xs font-medium text-slate-600 mb-1">
+                                Comentário
+                              </div>
+                              <div className="text-slate-900 whitespace-pre-wrap">
+                                {piece.comment}
+                              </div>
+                            </div>
+                          )}
+
                           <AccordionContent className="px-4 pb-3">
                             <div className="space-y-2">
                               {piece.orders

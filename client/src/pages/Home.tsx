@@ -38,6 +38,7 @@ export interface Piece {
   remaining_hours: number;
   orders: ProductionOrder[];
   is_critical?: boolean;
+  comment?: string;
 }
 
 

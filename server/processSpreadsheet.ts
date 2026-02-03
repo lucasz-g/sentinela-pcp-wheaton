@@ -69,6 +69,7 @@ interface TableRow {
   RECURSO: string;
   TEMPO_SETUP_SEGS: string;
   NAME: string;
+  COMENTARIO?: string;
 }
 
 interface Operation {
@@ -103,6 +104,7 @@ interface Piece {
   remaining_hours: number;
   orders: ProductionOrder[];
   is_critical: boolean;
+  comment?: string;
 }
 
 interface PrefixGroup {
@@ -192,6 +194,13 @@ export function processCSV(filePath: string): PrefixGroup[] {
     }
 
     const piece = allPiecesMap.get(pieceCode)!;
+
+    const comment = (row.COMENTARIO ?? "").trim();
+
+    // guarda o primeiro comentário não-vazio que aparecer
+    if (!piece.comment && comment) {
+      piece.comment = comment;
+    }
 
     // Agrupar operações por OP dentro da peça
     let order = piece.orders.find(o => o.op_id === opId);
