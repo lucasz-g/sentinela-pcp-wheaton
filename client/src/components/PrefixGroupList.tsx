@@ -7,7 +7,13 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, CheckCircle2, Clock, Package, Layers } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Package,
+  Layers,
+} from "lucide-react";
 import type { PrefixGroup } from "@/pages/Home";
 import { OperationStepper } from "@/components/OperationStepper.tsx";
 
@@ -76,14 +82,20 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
 
   return (
     <div className="space-y-4">
-      {groups.map((group) => (
-        <div key={group.prefix} className="bg-white rounded-lg shadow-sm overflow-hidden">
+      {groups.map(group => (
+        <div
+          key={group.prefix}
+          className="bg-white rounded-lg shadow-sm overflow-hidden"
+        >
           <Accordion
             type="multiple"
             value={expandedPrefixes}
             onValueChange={setExpandedPrefixes}
           >
-            <AccordionItem value={`prefix-${group.prefix}`} className="border-none">
+            <AccordionItem
+              value={`prefix-${group.prefix}`}
+              className="border-none"
+            >
               <AccordionTrigger className="px-6 py-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center justify-between w-full pr-4">
                   <div className="flex items-center gap-4">
@@ -120,7 +132,7 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
 
               <AccordionContent className="px-6 pb-4">
                 <div className="space-y-3">
-                  {group.pieces.map((piece) => (
+                  {group.pieces.map(piece => (
                     <div
                       key={piece.product_code}
                       className={`border rounded-lg overflow-hidden ${
@@ -129,24 +141,26 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
                           : "border-slate-200"
                       }`}
                     >
-
                       <Accordion
                         type="multiple"
                         value={expandedPieces}
                         onValueChange={setExpandedPieces}
                       >
-                        <AccordionItem value={`piece-${piece.product_code}`} className="border-none">
+                        <AccordionItem
+                          value={`piece-${piece.product_code}`}
+                          className="border-none"
+                        >
                           <AccordionTrigger className="px-4 py-3 hover:bg-slate-50">
                             <div className="flex items-center justify-between w-full pr-4">
                               <div className="flex items-center gap-3">
                                 <Package className="w-5 h-5 text-slate-600" />
-                                                  
+
                                 <div className="text-left">
                                   <div className="flex items-center gap-2">
                                     <span className="font-semibold text-slate-900">
                                       {piece.product_code}
                                     </span>
-                                                  
+
                                     {piece.is_critical && (
                                       <Badge
                                         variant="outline"
@@ -156,17 +170,17 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
                                       </Badge>
                                     )}
                                   </div>
-                                  
+
                                   <div className="text-sm text-slate-600">
                                     {piece.product_desc}
                                   </div>
                                 </div>
                               </div>
 
-
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-slate-600">
-                                  {piece.orders.length} {piece.orders.length === 1 ? 'OP' : 'OPs'}
+                                  {piece.orders.length}{" "}
+                                  {piece.orders.length === 1 ? "OP" : "OPs"}
                                 </span>
                               </div>
                             </div>
@@ -174,18 +188,23 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
 
                           <AccordionContent className="px-4 pb-3">
                             <div className="space-y-2">
-                              {piece.orders.slice()
-                              .sort((a, b) => Number(b.is_critical) - Number(a.is_critical))
-                              .map((order) => (
+                              {piece.orders
+                                .slice()
+                                .sort(
+                                  (a, b) =>
+                                    Number(b.is_critical) -
+                                    Number(a.is_critical)
+                                )
+                                .map(order => (
                                   <div
                                     key={order.op_id}
-                                    ref={(el) => {
+                                    ref={el => {
                                       orderRefs.current[order.op_id] = el;
                                     }}
                                     className={`border rounded-lg p-4 transition-all ${
                                       order.is_critical
-                                      ? "border-red-600 border-2 shadow-lg shadow-red-500/20"
-                                      : "border-slate-200 bg-slate-50/50"
+                                        ? "border-red-600 border-2 shadow-lg shadow-red-500/20"
+                                        : "border-slate-200 bg-slate-50/50"
                                     }`}
                                   >
                                     {/* Cabeçalho da OP */}
@@ -197,75 +216,120 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
                                           </h4>
                                           <Badge
                                             variant="outline"
-                                            className={getStatusColor(order.status)}
+                                            className={getStatusColor(
+                                              order.status
+                                            )}
                                           >
                                             <span className="flex items-center gap-1">
                                               {getStatusIcon(order.status)}
                                               {getStatusLabel(order.status)}
                                             </span>
                                           </Badge>
-                                            {order.is_critical && (
+                                          {order.is_critical && (
                                             <Badge className="bg-red-600 text-white">
                                               Caminho Crítico
                                             </Badge>
                                           )}
+                                          {order.has_missing_pieces && (
+                                            <Badge className="bg-amber-500/10 text-amber-700 border border-amber-300">
+                                              <AlertTriangle className="w-3 h-3 mr-1" />
+                                              Falta de peças
+                                            </Badge>
+                                          )}
                                         </div>
-                                  
+
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                           <div>
-                                            <span className="text-slate-600">Emissão:</span>
+                                            <span className="text-slate-600">
+                                              Emissão:
+                                            </span>
                                             <div className="font-medium text-slate-900">
-                                              {new Date(order.emission_date).toLocaleDateString("pt-BR")}
+                                              {new Date(
+                                                order.emission_date
+                                              ).toLocaleDateString("pt-BR")}
                                             </div>
                                           </div>
-                                  
+
                                           <div>
-                                            <span className="text-slate-600">Prazo:</span>
+                                            <span className="text-slate-600">
+                                              Prazo:
+                                            </span>
                                             <div className="font-medium text-slate-900">
-                                              {new Date(order.deadline).toLocaleDateString("pt-BR")}
+                                              {new Date(
+                                                order.deadline
+                                              ).toLocaleDateString("pt-BR")}
                                             </div>
                                           </div>
-                                  
-                                          {order.status !== "concluido" &&
-                                            order.days_late !== undefined &&
-                                            order.days_late > 0 && (
-                                              <div>
-                                                <span className="text-slate-600">Atraso:</span>
-                                                <div className="font-medium text-red-600">
-                                                  {order.days_late}{" "}
-                                                  {order.days_late === 1 ? "dia" : "dias"}
-                                                </div>
-                                              </div>
-                                          )}
-
 
                                           <div>
-                                            <span className="text-slate-600">Tempo Restante:</span>
+                                            <span className="text-slate-600">
+                                              Qtd. Planejada:
+                                            </span>
+                                            <div className="font-medium text-slate-900">
+                                              {order.planned_quantity}
+                                            </div>
+                                          </div>
+
+                                          <div>
+                                            <span className="text-slate-600">
+                                              Qtd. Real:
+                                            </span>
+                                            <div className="font-medium text-slate-900">
+                                              {order.real_quantity}
+                                            </div>
+                                          </div>
+
+                                          <div>
+                                            <span className="text-slate-600">
+                                              Tempo Restante:
+                                            </span>
                                             <div className="font-medium text-slate-900">
                                               {order.remaining_hours}h
                                             </div>
                                           </div>
+                                          {order.status !== "concluido" &&
+                                            order.days_late !== undefined &&
+                                            order.days_late > 0 && (
+                                              <div>
+                                                <span className="text-slate-600">
+                                                  Atraso:
+                                                </span>
+                                                <div className="font-medium text-red-600">
+                                                  {order.days_late}{" "}
+                                                  {order.days_late === 1
+                                                    ? "dia"
+                                                    : "dias"}
+                                                </div>
+                                              </div>
+                                            )}
                                         </div>
                                       </div>
                                     </div>
-                                        
+
                                     {/* Progresso */}
                                     <div className="mb-3">
                                       <div className="flex items-center justify-between text-sm mb-2">
-                                        <span className="text-slate-600">Progresso</span>
+                                        <span className="text-slate-600">
+                                          Progresso
+                                        </span>
                                         <span className="font-semibold text-slate-900">
                                           {order.progress}%
                                         </span>
                                       </div>
-                                      <Progress value={order.progress} className="h-3" />
+                                      <Progress
+                                        value={order.progress}
+                                        className="h-3"
+                                      />
                                     </div>
-                                        
+
                                     {/* Fluxo */}
                                     <div>
                                       <div className="text-sm font-medium text-slate-700 mb-2">
                                         Fluxo de Operações
                                       </div>
-                                      <OperationStepper operations={order.operations} />
+                                      <OperationStepper
+                                        operations={order.operations}
+                                      />
                                     </div>
                                   </div>
                                 ))}

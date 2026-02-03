@@ -25,6 +25,10 @@ export interface ProductionOrder {
   operations: Operation[];
   is_critical?: boolean; 
   name: string;
+  has_missing_pieces: boolean;
+  planned_quantity: number; 
+  real_quantity: number; 
+  quantitiesInitialized: boolean;
 }
 
 

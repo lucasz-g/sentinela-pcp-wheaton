@@ -1,26 +1,26 @@
-import { readFileSync } from 'fs';
-import * as XLSX from 'xlsx';
-import { extractPrefix, getPrefixName } from './prefixMapping';
+import { readFileSync } from "fs";
+import * as XLSX from "xlsx";
+import { extractPrefix, getPrefixName } from "./prefixMapping";
 
 // Lista de produtos permitidos (tipos de peças de moldes)
 const ALLOWED_PRODUCTS = [
-  'MOLDE',
-  'BLANK',
-  'BAFFLE',
-  'FUNIL',
-  'FUNDO',
-  'NECKRING',
-  'ANEL DE GUIA',
-  'INJETOR',
-  'MACHO',
-  'PLUG DO BAFFLE',
-  'BUCHA DO FUNDO',
-  'PLUG DO FUNDO',
-  'BUCHA DO MOLDE',
-  'EIXO MOTOR',
-  'GUIA DA GAVETA',
-  'PINO',
-  'ALAVANCA AC',
+  "MOLDE",
+  "BLANK",
+  "BAFFLE",
+  "FUNIL",
+  "FUNDO",
+  "NECKRING",
+  "ANEL DE GUIA",
+  "INJETOR",
+  "MACHO",
+  "PLUG DO BAFFLE",
+  "BUCHA DO FUNDO",
+  "PLUG DO FUNDO",
+  "BUCHA DO MOLDE",
+  "EIXO MOTOR",
+  "GUIA DA GAVETA",
+  "PINO",
+  "ALAVANCA AC",
 ];
 
 /**
@@ -36,7 +36,7 @@ function isAllowedProduct(productDesc: string): boolean {
  * Ex: MO-11290-S -> 11290
  */
 function extractBaseNumber(productCode: string): string {
-  const parts = productCode.split('-');
+  const parts = productCode.split("-");
   if (parts.length >= 2) {
     // Retorna a segunda parte, que geralmente é o número (11290, 7781, etc)
     return parts[1];
@@ -88,6 +88,12 @@ interface ProductionOrder {
   operations: Operation[];
   is_critical: boolean;
   name: string;
+
+  planned_quantity: number;
+  real_quantity: number;
+  has_missing_pieces: boolean;
+
+  quantitiesInitialized: boolean; // 👈 ADICIONA
 }
 
 interface Piece {
@@ -138,8 +144,8 @@ function parseDate(dateValue: string | number): Date | null {
 
 function formatDate(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -156,25 +162,24 @@ function calculateDaysLate(deadline: Date): number {
   return diffDays > 0 ? diffDays : 0;
 }
 
-
 function getOrderStatus(progress: number, daysLate: number): string {
-  if (progress >= 100) return 'concluido';
-  if (daysLate > 0) return 'atrasado';
-  return 'no_prazo';
+  if (progress >= 100) return "concluido";
+  if (daysLate > 0) return "atrasado";
+  return "no_prazo";
 }
 
 export function processCSV(filePath: string): PrefixGroup[] {
   const rows: TableRow[] = parseXLSX(filePath);
   const filteredRows = rows.filter(row => isAllowedProduct(row.DESC_PRODUTO));
-  
+
   // Estrutura temporária para agrupar todas as peças do sistema
   const allPiecesMap = new Map<string, Piece>();
-  
+
   // 1. Primeiro, processamos todas as linhas para criar as peças e suas OPs
   filteredRows.forEach(row => {
     const pieceCode = row.COD_PRODUTO;
     const opId = row.ORDEMPRODUCAO;
-    
+
     if (!allPiecesMap.has(pieceCode)) {
       allPiecesMap.set(pieceCode, {
         product_code: pieceCode,
@@ -182,26 +187,30 @@ export function processCSV(filePath: string): PrefixGroup[] {
         base_number: extractBaseNumber(pieceCode),
         remaining_hours: 0,
         orders: [],
-        is_critical: false
+        is_critical: false,
       });
     }
-    
+
     const piece = allPiecesMap.get(pieceCode)!;
-    
+
     // Agrupar operações por OP dentro da peça
     let order = piece.orders.find(o => o.op_id === opId);
     if (!order) {
       order = {
         op_id: opId,
         name: row.NAME,
-        status: '',
+        status: "",
         progress: 0,
         deadline: parseDate(row.DT_PRAZO)!,
         emission_date: formatDate(parseDate(row.DT_EMISSAO)!),
         days_late: 0, // 👈 inicializa
         remaining_hours: 0,
         operations: [],
-        is_critical: false
+        is_critical: false,
+        planned_quantity: parseFloat(row.QUANTIDADE_PLANEJADA) || 0,
+        real_quantity: parseFloat(row.QUANTIDADE_REAL) || 0,
+        has_missing_pieces: false,
+        quantitiesInitialized: false,
       };
       piece.orders.push(order);
     }
@@ -212,7 +221,8 @@ export function processCSV(filePath: string): PrefixGroup[] {
       const realQty = parseFloat(row.QUANTIDADE_REAL) || 0;
       const timePrevUnit = parseFloat(row.TMP_TOTAL_PREV_UNID) || 0;
 
-      let operationStatus: "NAO_INICIADA" | "EM_ANDAMENTO" | "CONCLUIDA" = "NAO_INICIADA";
+      let operationStatus: "NAO_INICIADA" | "EM_ANDAMENTO" | "CONCLUIDA" =
+        "NAO_INICIADA";
       let opRemainingHours = 0;
 
       if (row.STATUS_OPERACAO === "LIBERADA") {
@@ -227,12 +237,18 @@ export function processCSV(filePath: string): PrefixGroup[] {
         }
       }
 
+      if (!order.quantitiesInitialized) {
+        order.planned_quantity = plannedQty;
+        order.real_quantity = realQty;
+        order.quantitiesInitialized = true;
+      }
+
       order.operations.push({
         code: row.COD_OPERACAO,
         desc: row.DESC_GRUPOGERENCIAL,
-        status: operationStatus
+        status: operationStatus,
       });
-      
+
       order.remaining_hours += opRemainingHours;
     }
   });
@@ -241,21 +257,31 @@ export function processCSV(filePath: string): PrefixGroup[] {
   allPiecesMap.forEach(piece => {
     piece.remaining_hours = 0;
     piece.orders.forEach(order => {
-      const completedOps = order.operations.filter(op => op.status === "CONCLUIDA").length;
-      order.progress = order.operations.length > 0 
-        ? Math.round((completedOps / order.operations.length) * 100) 
-        : 0;
-      
+      const completedOps = order.operations.filter(
+        op => op.status === "CONCLUIDA"
+      ).length;
+      order.progress =
+        order.operations.length > 0
+          ? Math.round((completedOps / order.operations.length) * 100)
+          : 0;
+
       // Recalcular status baseado no progresso e prazo
       const daysLate = calculateDaysLate(order.deadline);
       order.days_late = daysLate;
       order.status = getOrderStatus(order.progress, daysLate);
       order.remaining_hours = Math.round(order.remaining_hours * 10) / 10;
       piece.remaining_hours += order.remaining_hours;
-      order.is_critical = false; // 🔒 OP NUNCA é crítica
+      order.is_critical = false;
+      const hasStarted = order.operations.some(
+        op => op.status !== "NAO_INICIADA"
+      );
+      order.has_missing_pieces =
+        hasStarted && order.real_quantity < order.planned_quantity;
     });
     piece.remaining_hours = Math.round(piece.remaining_hours * 10) / 10;
-    piece.orders.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    piece.orders.sort(
+      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+    );
   });
 
   // 3. APLICAR REGRA DE CRITICIDADE POR CONTEXTO (NÚMERO BASE)
@@ -296,7 +322,7 @@ export function processCSV(filePath: string): PrefixGroup[] {
         total_orders: 0,
         critical_count: 0,
         late_count: 0,
-        pieces: []
+        pieces: [],
       });
     }
 
