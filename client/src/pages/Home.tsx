@@ -53,11 +53,13 @@ export default function Home() {
   const [prefixGroups, setPrefixGroups] = useState<PrefixGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<PrefixGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFiltered, setIsFiltered] = useState(false);
 
   const handleFileProcessed = (data: PrefixGroup[]) => {
     setPrefixGroups(data);
     setFilteredGroups(data);
     setIsLoading(false);
+    setIsFiltered(false);
   };
 
   const handleFileSelected = () => {
@@ -67,14 +69,16 @@ export default function Home() {
   const handleReset = () => {
     setPrefixGroups([]);
     setFilteredGroups([]);
+    setIsFiltered(false);
   };
 
   const handleFilterChange = (filtered: PrefixGroup[]) => {
     setFilteredGroups(filtered);
+    setIsFiltered(true);
   };
 
   // Calcular estatísticas gerais
-  const statsSource = filteredGroups.length ? filteredGroups : prefixGroups;
+  const statsSource = isFiltered ? filteredGroups : prefixGroups;
 
   // todas as OPs do source atual
   const allOrders = statsSource.flatMap(group =>
@@ -88,7 +92,7 @@ export default function Home() {
   ).length;
 
   const totalCritical = statsSource.reduce(
-    (sum, group) => sum + group.critical_count,
+    (sum, group) => sum + group.pieces.filter(p => p.is_critical).length,
     0
   );
 

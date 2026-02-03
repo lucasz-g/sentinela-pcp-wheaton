@@ -111,8 +111,8 @@ export default function PrefixGroupList({ groups }: PrefixGroupListProps) {
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-sm text-slate-600">Total de OPs</div>
-                      {/* <div className="text-2xl font-bold text-slate-900">
+                      {/* <div className="text-sm text-slate-600">Total de OPs</div>
+                      <div className="text-2xl font-bold text-slate-900">
                         {group.total_orders}
                       </div> */}
                     </div>
