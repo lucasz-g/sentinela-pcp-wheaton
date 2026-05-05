@@ -1,15 +1,29 @@
- version: "3.9"
+version: "3.9"
 
 services:
-  app:
+  sentinela-pcp:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: sentinela-pcp
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
     environment:
       NODE_ENV: development
-      OAUTH_SERVER_URL: http://localhost:8080 # ajuste se precisar
+      PORT: 3000
+
+      # POC/dev: sem banco e sem OAuth real
+      JWT_SECRET: "poc-dev-secret"
+      VITE_APP_ID: "sentinela-pcp"
+      OAUTH_SERVER_URL: ""
+      VITE_OAUTH_PORTAL_URL: ""
+
+      VITE_ANALYTICS_ENDPOINT: "http://localhost:3000"
+      VITE_ANALYTICS_WEBSITE_ID: "dev"
+
+    volumes:
+      - sentinela_uploads:/app/uploads
+
+volumes:
+  sentinela_uploads:
