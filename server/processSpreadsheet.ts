@@ -1,4 +1,3 @@
-import { readFileSync } from "fs";
 import * as XLSX from "xlsx";
 import { extractPrefix, getPrefixName } from "./prefixMapping";
 
@@ -26,8 +25,8 @@ const ALLOWED_PRODUCTS = [
 /**
  * Verifica se um produto deve ser incluído baseado na descrição
  */
-function isAllowedProduct(productDesc: string): boolean {
-  const upperDesc = productDesc.toUpperCase().trim();
+function isAllowedProduct(productDesc?: string): boolean {
+  const upperDesc = (productDesc ?? "").toUpperCase().trim();
   return ALLOWED_PRODUCTS.some(allowed => upperDesc.includes(allowed));
 }
 
@@ -38,10 +37,9 @@ function isAllowedProduct(productDesc: string): boolean {
 function extractBaseNumber(productCode: string): string {
   const parts = productCode.split("-");
   if (parts.length >= 2) {
-    // Retorna a segunda parte, que geralmente é o número (11290, 7781, etc)
     return parts[1];
   }
-  return productCode; // Fallback
+  return productCode;
 }
 
 interface TableRow {
@@ -72,42 +70,57 @@ interface TableRow {
   COMENTARIO?: string;
 }
 
-interface Operation {
+export interface Operation {
   code: string;
   desc: string;
   status: string;
+  /** Quantidade planejada para esta operação */
+  planned_qty: number;
+  /** Quantidade real executada nesta operação */
+  real_qty: number;
+  /** Tempo planejado total em horas (planned_qty * tmp_prev_unid / 60) */
+  planned_hours: number;
+  /** Tempo real trabalhado em horas */
+  real_hours: number;
+  /** Tempo restante estimado em horas */
+  remaining_hours: number;
 }
 
-interface ProductionOrder {
+export interface ProductionOrder {
   op_id: string;
   status: string;
   progress: number;
-  deadline: Date;
+  deadline: string;
   emission_date: string;
   days_late: number;
   remaining_hours: number;
+  /** Total de horas planejadas para a OP */
+  planned_hours: number;
+  /** Total de horas reais trabalhadas na OP */
+  real_hours: number;
   operations: Operation[];
-  is_critical: boolean;
+  is_critical?: boolean;
   name: string;
-
+  has_missing_pieces: boolean;
   planned_quantity: number;
   real_quantity: number;
-  has_missing_pieces: boolean;
-
-  quantitiesInitialized: boolean; // 👈 ADICIONA
+  quantitiesInitialized: boolean;
 }
 
-interface Piece {
+export interface Piece {
   product_code: string;
   product_desc: string;
-  base_number: string; // Contexto lógico
   remaining_hours: number;
+  /** Total de horas planejadas para a peça */
+  planned_hours: number;
+  /** Total de horas reais trabalhadas na peça */
+  real_hours: number;
   orders: ProductionOrder[];
-  is_critical: boolean;
+  is_critical?: boolean;
   comment?: string;
 }
 
-interface PrefixGroup {
+export interface PrefixGroup {
   prefix: string;
   prefix_name: string;
   total_orders: number;
@@ -131,7 +144,11 @@ function parseDate(dateValue: string | number): Date | null {
     const excelEpoch = new Date(1899, 11, 30);
     return new Date(excelEpoch.getTime() + dateValue * 86400000);
   }
-  const datePart = dateValue.split(" ")[0];
+  const datePart = String(dateValue).split(" ")[0].trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [year, month, day] = datePart.split("-");
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
   if (/^\d{4}\/\d{2}\/\d{2}$/.test(datePart)) {
     const [year, month, day] = datePart.split("/");
     return new Date(Number(year), Number(month) - 1, Number(day));
@@ -151,7 +168,30 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function isValidDate(date: Date | null | undefined): date is Date {
+  return !!date && !Number.isNaN(date.getTime());
+}
+
+function parseNumber(value: string | number | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  let normalized = raw;
+  if (/,\d+$/.test(raw)) {
+    normalized = raw.replace(/\./g, "").replace(",", ".");
+  } else {
+    normalized = raw.replace(/,/g, "");
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function calculateDaysLate(deadline: Date): number {
+  if (!isValidDate(deadline)) return 0;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -174,10 +214,9 @@ export function processCSV(filePath: string): PrefixGroup[] {
   const rows: TableRow[] = parseXLSX(filePath);
   const filteredRows = rows.filter(row => isAllowedProduct(row.DESC_PRODUTO));
 
-  // Estrutura temporária para agrupar todas as peças do sistema
   const allPiecesMap = new Map<string, Piece>();
 
-  // 1. Primeiro, processamos todas as linhas para criar as peças e suas OPs
+  // 1. Processar todas as linhas para criar peças e OPs
   filteredRows.forEach(row => {
     const pieceCode = row.COD_PRODUTO;
     const opId = row.ORDEMPRODUCAO;
@@ -188,21 +227,20 @@ export function processCSV(filePath: string): PrefixGroup[] {
         product_desc: row.DESC_PRODUTO,
         base_number: extractBaseNumber(pieceCode),
         remaining_hours: 0,
+        planned_hours: 0,
+        real_hours: 0,
         orders: [],
         is_critical: false,
-      });
+      } as any);
     }
 
     const piece = allPiecesMap.get(pieceCode)!;
 
     const comment = (row.COMENTARIO ?? "").trim();
-
-    // guarda o primeiro comentário não-vazio que aparecer
     if (!piece.comment && comment) {
       piece.comment = comment;
     }
 
-    // Agrupar operações por OP dentro da peça
     let order = piece.orders.find(o => o.op_id === opId);
     if (!order) {
       order = {
@@ -210,40 +248,84 @@ export function processCSV(filePath: string): PrefixGroup[] {
         name: row.NAME,
         status: "",
         progress: 0,
-        deadline: parseDate(row.DT_PRAZO)!,
-        emission_date: formatDate(parseDate(row.DT_EMISSAO)!),
-        days_late: 0, // 👈 inicializa
+        deadline: (() => {
+          const parsedDeadline = parseDate(row.DT_PRAZO);
+          return isValidDate(parsedDeadline)
+            ? formatDate(parsedDeadline)
+            : formatDate(new Date());
+        })(),
+        emission_date: (() => {
+          const parsedEmission = parseDate(row.DT_EMISSAO);
+          if (isValidDate(parsedEmission)) return formatDate(parsedEmission);
+          const parsedDeadline = parseDate(row.DT_PRAZO);
+          if (isValidDate(parsedDeadline)) return formatDate(parsedDeadline);
+          return formatDate(new Date());
+        })(),
+        days_late: 0,
         remaining_hours: 0,
+        planned_hours: 0,
+        real_hours: 0,
         operations: [],
         is_critical: false,
-        planned_quantity: parseFloat(row.QUANTIDADE_PLANEJADA) || 0,
-        real_quantity: parseFloat(row.QUANTIDADE_REAL) || 0,
+        planned_quantity: parseNumber(row.QUANTIDADE_PLANEJADA),
+        real_quantity: parseNumber(row.QUANTIDADE_REAL),
         has_missing_pieces: false,
         quantitiesInitialized: false,
       };
       piece.orders.push(order);
     }
 
-    // Adicionar operação se não existir (evitar duplicatas de linhas de operação)
+    // Adicionar operação se não existir
     if (!order.operations.find(op => op.code === row.COD_OPERACAO)) {
-      const plannedQty = parseFloat(row.QUANTIDADE_PLANEJADA) || 0;
-      const realQty = parseFloat(row.QUANTIDADE_REAL) || 0;
-      const timePrevUnit = parseFloat(row.TMP_TOTAL_PREV_UNID) || 0;
+      const plannedQty = parseNumber(row.QUANTIDADE_PLANEJADA);
+      const realQty = parseNumber(row.QUANTIDADE_REAL);
+      const timePrevUnit = parseNumber(row.TMP_TOTAL_PREV_UNID);
+      // TMP_TOTAL_REAL_UNID = tempo real por unidade (em minutos)
+      const timeRealUnit = parseNumber(row.TMP_TOTAL_REAL_UNID);
+      // TMP_TOTAL_REAL_TRAB_MIN = tempo real trabalhado total em minutos
+      const timeRealTrabMin = parseNumber(row.TMP_TOTAL_REAL_TRAB_MIN);
+
+      const operationStatusRaw = (row.STATUS_OPERACAO ?? "")
+        .trim()
+        .toUpperCase();
 
       let operationStatus: "NAO_INICIADA" | "EM_ANDAMENTO" | "CONCLUIDA" =
         "NAO_INICIADA";
       let opRemainingHours = 0;
 
-      if (row.STATUS_OPERACAO === "LIBERADA") {
+      // Horas planejadas = qty_planejada * tempo_previsto_por_unidade / 60
+      const opPlannedHours = (plannedQty * timePrevUnit) / 60;
+
+      // Horas reais = tempo_real_trabalhado_total em minutos / 60
+      // Usamos TMP_TOTAL_REAL_TRAB_MIN como fonte mais direta do tempo real
+      let opRealHours = timeRealTrabMin / 60;
+      // Fallback: se não tiver TRAB_MIN, calcular via qty_real * tempo_real_por_unidade
+      if (opRealHours === 0 && timeRealUnit > 0) {
+        opRealHours = (realQty * timeRealUnit) / 60;
+      }
+
+      if (
+        operationStatusRaw.includes("FINALIZ") ||
+        operationStatusRaw.includes("CONCLUID") ||
+        operationStatusRaw.includes("ENCERRAD")
+      ) {
+        operationStatus = "CONCLUIDA";
+        opRemainingHours = 0;
+      } else if (
+        operationStatusRaw === "LIBERADA" ||
+        operationStatusRaw.includes("NAO INICI")
+      ) {
         operationStatus = "NAO_INICIADA";
-        opRemainingHours = (plannedQty * timePrevUnit) / 60;
-      } else if (row.STATUS_OPERACAO === "INTERROMPIDA") {
-        if (realQty < plannedQty) {
-          operationStatus = "EM_ANDAMENTO";
-          opRemainingHours = ((plannedQty - realQty) * timePrevUnit) / 60;
-        } else {
-          operationStatus = "CONCLUIDA";
-        }
+        opRemainingHours = opPlannedHours;
+      } else if (realQty >= plannedQty && plannedQty > 0) {
+        operationStatus = "CONCLUIDA";
+        opRemainingHours = 0;
+      } else if (realQty > 0 && plannedQty > 0) {
+        operationStatus = "EM_ANDAMENTO";
+        opRemainingHours = ((plannedQty - realQty) * timePrevUnit) / 60;
+      } else {
+        operationStatus = "NAO_INICIADA";
+        opRemainingHours = opPlannedHours;
       }
 
       if (!order.quantitiesInitialized) {
@@ -256,15 +338,25 @@ export function processCSV(filePath: string): PrefixGroup[] {
         code: row.COD_OPERACAO,
         desc: row.DESC_GRUPOGERENCIAL,
         status: operationStatus,
+        planned_qty: plannedQty,
+        real_qty: realQty,
+        planned_hours: Math.round(opPlannedHours * 10) / 10,
+        real_hours: Math.round(opRealHours * 10) / 10,
+        remaining_hours: Math.round(opRemainingHours * 10) / 10,
       });
 
       order.remaining_hours += opRemainingHours;
+      order.planned_hours += opPlannedHours;
+      order.real_hours += opRealHours;
     }
   });
 
-  // 2. Finalizar cálculos de progresso e status para cada peça/ordem
+  // 2. Finalizar cálculos de progresso e status
   allPiecesMap.forEach(piece => {
     piece.remaining_hours = 0;
+    piece.planned_hours = 0;
+    piece.real_hours = 0;
+
     piece.orders.forEach(order => {
       const completedOps = order.operations.filter(
         op => op.status === "CONCLUIDA"
@@ -274,12 +366,18 @@ export function processCSV(filePath: string): PrefixGroup[] {
           ? Math.round((completedOps / order.operations.length) * 100)
           : 0;
 
-      // Recalcular status baseado no progresso e prazo
-      const daysLate = calculateDaysLate(order.deadline);
+      const deadlineDate = new Date(order.deadline);
+      const daysLate = calculateDaysLate(deadlineDate);
       order.days_late = daysLate;
       order.status = getOrderStatus(order.progress, daysLate);
       order.remaining_hours = Math.round(order.remaining_hours * 10) / 10;
+      order.planned_hours = Math.round(order.planned_hours * 10) / 10;
+      order.real_hours = Math.round(order.real_hours * 10) / 10;
+
       piece.remaining_hours += order.remaining_hours;
+      piece.planned_hours += order.planned_hours;
+      piece.real_hours += order.real_hours;
+
       order.is_critical = false;
       const hasStarted = order.operations.some(
         op => op.status !== "NAO_INICIADA"
@@ -287,7 +385,11 @@ export function processCSV(filePath: string): PrefixGroup[] {
       order.has_missing_pieces =
         hasStarted && order.real_quantity < order.planned_quantity;
     });
+
     piece.remaining_hours = Math.round(piece.remaining_hours * 10) / 10;
+    piece.planned_hours = Math.round(piece.planned_hours * 10) / 10;
+    piece.real_hours = Math.round(piece.real_hours * 10) / 10;
+
     piece.orders.sort(
       (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
     );
@@ -296,13 +398,14 @@ export function processCSV(filePath: string): PrefixGroup[] {
   // 3. APLICAR REGRA DE CRITICIDADE POR CONTEXTO (NÚMERO BASE)
   const contextMap = new Map<string, Piece[]>();
   allPiecesMap.forEach(piece => {
-    if (!contextMap.has(piece.base_number)) {
-      contextMap.set(piece.base_number, []);
+    const baseNumber = (piece as any).base_number ?? "";
+    if (!contextMap.has(baseNumber)) {
+      contextMap.set(baseNumber, []);
     }
-    contextMap.get(piece.base_number)!.push(piece);
+    contextMap.get(baseNumber)!.push(piece);
   });
 
-  contextMap.forEach((piecesInContext, baseNumber) => {
+  contextMap.forEach(piecesInContext => {
     let criticalPiece: Piece | null = null;
     let maxHours = 0;
 
@@ -313,7 +416,6 @@ export function processCSV(filePath: string): PrefixGroup[] {
       }
     });
 
-    // Marca apenas a peça mais demorada do contexto como crítica
     if (criticalPiece && (criticalPiece as Piece).remaining_hours > 0) {
       (criticalPiece as Piece).is_critical = true;
     }
