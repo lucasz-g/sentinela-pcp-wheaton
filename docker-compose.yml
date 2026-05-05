@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    pull_policy: build
     container_name: sentinela-pcp
     restart: unless-stopped
     ports:
