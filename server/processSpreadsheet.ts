@@ -1,33 +1,19 @@
 import * as XLSX from "xlsx";
+import { ALLOWED_PRODUCTS } from "./constants";
 import { extractPrefix, getPrefixName } from "./prefixMapping";
 
-// Lista de produtos permitidos (tipos de peças de moldes)
-const ALLOWED_PRODUCTS = [
-  "MOLDE",
-  "BLANK",
-  "BAFFLE",
-  "FUNIL",
-  "FUNDO",
-  "NECKRING",
-  "ANEL DE GUIA",
-  "INJETOR",
-  "MACHO",
-  "PLUG DO BAFFLE",
-  "BUCHA DO FUNDO",
-  "PLUG DO FUNDO",
-  "BUCHA DO MOLDE",
-  "EIXO MOTOR",
-  "GUIA DA GAVETA",
-  "PINO",
-  "ALAVANCA AC",
-];
+const NORMALIZED_ALLOWED_PRODUCTS = ALLOWED_PRODUCTS.map(product =>
+  product.toUpperCase()
+);
 
 /**
  * Verifica se um produto deve ser incluído baseado na descrição
  */
 function isAllowedProduct(productDesc?: string): boolean {
   const upperDesc = (productDesc ?? "").toUpperCase().trim();
-  return ALLOWED_PRODUCTS.some(allowed => upperDesc.includes(allowed));
+  return NORMALIZED_ALLOWED_PRODUCTS.some(allowed =>
+    upperDesc.includes(allowed)
+  );
 }
 
 /**
