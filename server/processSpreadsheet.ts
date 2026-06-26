@@ -5,14 +5,16 @@ import { extractPrefix, getPrefixName } from "./prefixMapping";
 const NORMALIZED_ALLOWED_PRODUCTS = ALLOWED_PRODUCTS.map(product =>
   product.toUpperCase()
 );
+const MOLD_PRODUCT_DESCRIPTION_PATTERN = /^MOLDES?\b/;
 
 /**
  * Verifica se um produto deve ser incluído baseado na descrição
  */
-function isAllowedProduct(productDesc?: string): boolean {
+export function isAllowedProduct(productDesc?: string): boolean {
   const upperDesc = (productDesc ?? "").toUpperCase().trim();
-  return NORMALIZED_ALLOWED_PRODUCTS.some(allowed =>
-    upperDesc.includes(allowed)
+  return (
+    MOLD_PRODUCT_DESCRIPTION_PATTERN.test(upperDesc) ||
+    NORMALIZED_ALLOWED_PRODUCTS.some(allowed => upperDesc.includes(allowed))
   );
 }
 
